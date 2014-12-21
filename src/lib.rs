@@ -61,7 +61,7 @@ impl<V: Hash> CuckooBloomFilter<V> {
         }
     }
 
-    pub fn insert<V: Hash>(&self, x: &V) -> Result<(), CuckooFailure> {
+    pub fn insert<V: Hash>(&mut self, x: &V) -> Result<(), CuckooFailure> {
         let f  = Fingerprint::new(self.size, x);
         let i1 = hash(x) as uint % self.size;
         let i2 = (i1 ^ f.fingerprint) % self.size;
@@ -71,8 +71,13 @@ impl<V: Hash> CuckooBloomFilter<V> {
         }
         if self.buckets[i2].value.is_none() {
             //Insert here and return
+            self.buckets[i2].set(f);
             return Ok(())
         }
+
+        // If the previous two lookup failed, try to
+        // swap element in place until we succeed or hit the
+        // max kick factor
         Err(CuckooFailure::Full)
     }
 
@@ -118,7 +123,7 @@ mod test {
     fn insert_on_singleton() {
         let s = FilterSettings::def();
         let v = "hello".to_string();
-        let f = CuckooBloomFilter::<String>::new_with_settings(1, s);
+        let mut f = CuckooBloomFilter::<String>::new_with_settings(1, s);
         f.insert(&v).ok().expect("The init can't fail.");
         assert_eq!(f.lookup(&v), true);
     }

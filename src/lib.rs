@@ -1,64 +1,64 @@
+pub mod cuckoo_bloom_filter {
+
 use std::hash::{Hash, hash};
 
 #[deriving(PartialEq, Eq)]
-struct Fingerprint {
-    getFingerprint: u64
+pub struct Fingerprint {
+    fingerprint: u64
 }
 
 impl Fingerprint {
     // Creates a new Fingerprint from the given item.
     // This is NOT the correct implementation. Fix it.
     pub fn new<'a, K: Hash>(item: &'a K) -> Fingerprint {
-        Fingerprint { getFingerprint: hash(item) }
+        Fingerprint { fingerprint: hash(item) }
     }
-
-    pub fn getFingerprint(&self) -> u64 { self.getFingerprint }
 }
 
-struct Entry {
+pub struct Entry {
     value: Option<Fingerprint>
 }
 
 impl Entry {
     pub fn new() -> Entry { Entry { value: None } }
-    pub fn setValue(&mut self, newValue: Option<Fingerprint>) {
-        self.value = newValue
+    pub fn set_value(&mut self, new_value: Option<Fingerprint>) {
+        self.value = new_value
     }
 }
 
-struct FilterSettings {
-    kickFactor: uint
+pub struct FilterSettings {
+    kick_factor: uint
 }
 
 impl FilterSettings {
-    fn def() -> FilterSettings { FilterSettings { kickFactor: 500 } }
+    pub fn def() -> FilterSettings { FilterSettings { kick_factor: 500 } }
 }
 
-struct CuckooBloomFilter<V> {
+pub struct CuckooBloomFilter<V> {
     size: u64,
     buckets: Vec<Entry>,
     settings: FilterSettings
 }
 
-impl<V> CuckooBloomFilter<V> {
-   //pub fn new<V: Hash>(size: u64) -> CuckooBloomFilter<V> {
-   //    let s: FilterSettings = FilterSettings::def();
-   //    let f: CuckooBloomFilter<V> = CuckooBloomFilter::newWithSettings(size, s);
-   //    f
-   //}
+impl<V: Hash> CuckooBloomFilter<V> {
+  pub fn new(size: u64) -> CuckooBloomFilter<V> {
+      let s: FilterSettings = FilterSettings::def();
+      let f: CuckooBloomFilter<V> = CuckooBloomFilter::<V>::new_with_settings(size, s);
+      f
+  }
 
-    pub fn newWithSettings<V: Hash>(size: u64, settings: FilterSettings) -> CuckooBloomFilter<V> {
+    pub fn new_with_settings(size: u64, settings: FilterSettings) -> CuckooBloomFilter<V> {
         CuckooBloomFilter {
             size: size,
-            buckets: Vec::with_capacity(size as uint), //dangerous cast?
+            buckets: Vec::from_fn(size as uint, |_| Entry { value: None }),
             settings: settings
         }
     }
 
-    pub fn insert<V: Hash>(&self, x: V) -> Result<(), CuckooFailure> {
-        let f  = Fingerprint::new(&x);
-        let i1 = hash(&x);
-        let i2 = i1 ^ f.getFingerprint();
+    pub fn insert<V: Hash>(&self, x: &V) -> Result<(), CuckooFailure> {
+        let f  = Fingerprint::new(x);
+        let i1 = hash(x);
+        let _ = i1 ^ f.fingerprint;
         Err(CuckooFailure::Full)
     }
 
@@ -73,10 +73,10 @@ impl<V> CuckooBloomFilter<V> {
             }
     }
 
-   pub fn lookup<V: Hash>(&self, x: V) -> bool {
-       let f  = Fingerprint::new(&x);
-       let i1 = hash(&x);
-       let i2 = i1 ^ f.getFingerprint();
+   pub fn lookup<V: Hash>(&self, x: &V) -> bool {
+       let f  = Fingerprint::new(x);
+       let i1 = hash(x);
+       let i2 = i1 ^ f.fingerprint;
 
        if self.contains_fingerprint(i1, &f) {
            return true
@@ -89,10 +89,23 @@ impl<V> CuckooBloomFilter<V> {
 
 }
 
-enum CuckooFailure {
+pub enum CuckooFailure {
     Full
 }
 
-#[test]
-fn it_works() {
+}
+
+#[cfg(test)]
+mod test {
+    use cuckoo_bloom_filter::{FilterSettings, CuckooBloomFilter};
+    use std::string::{String};
+
+    #[test]
+    fn insert_on_singleton() {
+        let s = FilterSettings::def();
+        let v = "hello".to_string();
+        let f = CuckooBloomFilter::<String>::new_with_settings(1, s);
+        f.insert(&v);
+        assert_eq!(f.lookup(&v), true);
+    }
 }

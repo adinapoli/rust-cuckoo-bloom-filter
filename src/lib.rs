@@ -21,6 +21,9 @@ struct Entry {
 
 impl Entry {
     pub fn new() -> Entry { Entry { value: None } }
+    pub fn setValue(&mut self, newValue: Option<Fingerprint>) {
+        self.value = newValue
+    }
 }
 
 struct FilterSettings {
@@ -47,7 +50,7 @@ impl<V> CuckooBloomFilter<V> {
     pub fn newWithSettings<V: Hash>(size: u64, settings: FilterSettings) -> CuckooBloomFilter<V> {
         CuckooBloomFilter {
             size: size,
-            buckets: range(0u64, size).map(|_| Entry::new()).collect(),
+            buckets: Vec::with_capacity(size as uint), //dangerous cast?
             settings: settings
         }
     }
@@ -59,21 +62,30 @@ impl<V> CuckooBloomFilter<V> {
         Err(CuckooFailure::Full)
     }
 
-    fn contains_fingerprint(&self, idx: u64, fin: Fingerprint) -> Option<&Entry> {
-        if idx >= self.size { return None }
-        let e: &Entry = &self.buckets[idx as uint];
-        match (*e).value {
-            None => None,
-            Some(v) => if v == fin { Some(e) } else { None }
-        }
+    fn contains_fingerprint<'a>(& self
+                                , idx: u64
+                                , fin: &'a Fingerprint) -> bool {
+        if idx >= self.size { return false }
+        let ref e: Entry = self.buckets[idx as uint];
+            match (*e).value {
+                None => false,
+                Some(ref v) => if *v == *fin { true } else { false }
+            }
     }
 
-    pub fn lookup<V: Hash>(&self, x: V) -> bool {
-        let f  = Fingerprint::new(&x);
-        let i1 = hash(&x);
-        let i2 = i1 ^ f.getFingerprint();
-        false
-    }
+   pub fn lookup<V: Hash>(&self, x: V) -> bool {
+       let f  = Fingerprint::new(&x);
+       let i1 = hash(&x);
+       let i2 = i1 ^ f.getFingerprint();
+
+       if self.contains_fingerprint(i1, &f) {
+           return true
+       } else if self.contains_fingerprint(i2, &f) {
+           return true
+       }
+
+       return false
+   }
 
 }
 
